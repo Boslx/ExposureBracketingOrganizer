@@ -1,7 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod app;
-mod file_utils;
+mod application;
+mod domain;
+mod infrastructure;
+mod ui;
 
 use eframe::egui;
 
@@ -15,6 +17,6 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Exposure Bracketing Organizer",
         options,
-        Box::new(|_cc| Ok(Box::<app::ExposureBracketingOrganizerApp>::default())),
+        Box::new(|_cc| Ok(Box::<ui::app::ExposureBracketingOrganizerApp>::default())),
     )
 }

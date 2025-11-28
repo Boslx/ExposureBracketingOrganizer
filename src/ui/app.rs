@@ -1,3 +1,6 @@
+use crate::application::services::OrganizerService;
+use crate::domain::models::{Action, BracketOrder, EvMode, ExposureInfo, ExposureSettings};
+use crate::infrastructure::RawlerMetadataExtractor;
 use eframe::egui;
 use log::warn;
 use num_rational::Rational32;
@@ -8,60 +11,6 @@ use std::sync::{
     Arc,
 };
 use std::thread;
-use crate::file_utils::{count_files_in_directory, extract_raw_metadata, process_directory};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Action {
-    MoveToFolder,
-    SaveSequencesToTextfile,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum EvMode {
-    Absolute,
-    Delta,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum BracketOrder {
-    ZeroMinusPlus,
-    MinusZeroPlus,
-}
-
-impl std::fmt::Display for BracketOrder {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BracketOrder::ZeroMinusPlus => write!(f, "ZeroMinusPlus"),
-            BracketOrder::MinusZeroPlus => write!(f, "MinusZeroPlus"),
-        }
-    }
-}
-
-impl std::fmt::Display for EvMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EvMode::Absolute => write!(f, "Absolute EV Value"),
-            EvMode::Delta => write!(f, "Delta EV Change"),
-        }
-    }
-}
-
-impl std::fmt::Display for Action {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Action::MoveToFolder => write!(f, "Move to Folder"),
-            Action::SaveSequencesToTextfile => write!(f, "Save Sequences to Textfile"),
-        }
-    }
-}
-#[derive(Debug)]
-pub struct ExposureInfo {
-    pub filename: String,
-    pub exposure_bias_n: Option<i32>,
-    pub exposure_bias_d: Option<i32>,
-    pub exposure_mode: Option<u16>,
-    pub error_message: Option<String>,
-}
 
 pub struct ExposureBracketingOrganizerApp {
     pub picked_folder: Option<String>,
@@ -82,23 +31,6 @@ pub struct ExposureBracketingOrganizerApp {
     pub error_messagebox_text: String,
 
     pub exposure_settings: ExposureSettings,
-}
-
-#[derive(Debug, Clone)]
-pub struct ExposureSettings {
-    pub ev_step: f32,
-    pub num_images: u32,
-    pub bracket_order: BracketOrder,
-}
-
-impl Default for ExposureSettings {
-    fn default() -> Self {
-        Self {
-            ev_step: 1.0,
-            num_images: 3,
-            bracket_order: BracketOrder::ZeroMinusPlus,
-        }
-    }
 }
 
 impl Default for ExposureBracketingOrganizerApp {
@@ -426,19 +358,20 @@ impl eframe::App for ExposureBracketingOrganizerApp {
                             processed_files.store(0, Ordering::Relaxed);
                             exposure_bracketings_found.store(0, Ordering::Relaxed);
 
-                            // Spawn a thread that calls the top-level helpers
                             thread::spawn(move || {
+                                let service = OrganizerService::new(RawlerMetadataExtractor::new());
                                 let root = PathBuf::from(folder);
-                                if root.exists() {
-                                    let total = count_files_in_directory(&root, &extensions_vec);
-                                    total_files.store(total, Ordering::Relaxed);
 
-                                    process_directory(
+                                if root.exists() {
+                                    let count = service.count_files(&root, &extensions_vec);
+                                    total_files.store(count, Ordering::Relaxed);
+
+                                    service.process_directory(
                                         &root,
                                         &processed_files,
                                         &exposure_bracketings_found,
-                                        extensions_vec,
-                                        sequence,
+                                        &extensions_vec,
+                                        &sequence,
                                         selected_action,
                                         ev_mode,
                                         filter_by_auto_bracket,
@@ -465,42 +398,12 @@ impl eframe::App for ExposureBracketingOrganizerApp {
                         .pick_files()
                     {
                         self.exposure_infos.clear();
-                        for path in paths {
-                            let filename = path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
+                        let service = OrganizerService::new(RawlerMetadataExtractor::new());
 
-                            let info = if let Some(raw_metadata) =
-                                extract_raw_metadata(&path)
-                            {
-                                let exposure_bias = raw_metadata
-                                    .exif
-                                    .exposure_bias
-                                    .map(|eb| Rational32::new(eb.n, eb.d));
-                                let exposure_mode = raw_metadata.exif.exposure_mode;
-                                ExposureInfo {
-                                    filename,
-                                    exposure_bias_n: exposure_bias.map(|eb| *eb.numer()),
-                                    exposure_bias_d: exposure_bias.map(|eb| *eb.denom()),
-                                    exposure_mode,
-                                    error_message: if exposure_bias.is_none() {
-                                        Some("No exposure bias found".to_string())
-                                    } else {
-                                        None
-                                    },
-                                }
-                            } else {
-                                ExposureInfo {
-                                    filename,
-                                    exposure_bias_n: None,
-                                    exposure_bias_d: None,
-                                    exposure_mode: None,
-                                    error_message: Some("Could not read metadata".to_string()),
-                                }
-                            };
-                            self.exposure_infos.push(info);
+                        for path in paths {
+                            if let Some(info) = service.extract_exposure_info(&path) {
+                                self.exposure_infos.push(info);
+                            }
                         }
                         self.show_exposure_window = true;
                     }
@@ -602,7 +505,7 @@ impl ExposureBracketingOrganizerApp {
                 .show(ctx, |ui| {
                     ui.label(&self.error_messagebox_text);
                     if ui.button("OK").clicked() {
-                        //self.show_.error_messagebox = false;
+                        self.show_error_messagebox = false;
                     }
                 });
             if !is_open {
