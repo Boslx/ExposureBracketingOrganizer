@@ -11,7 +11,9 @@ fn main() -> eframe::Result {
     env_logger::init();
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([450.0, 450.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([450.0, 450.0])
+            .with_icon(set_window_icon()),
         ..Default::default()
     };
     eframe::run_native(
@@ -19,4 +21,18 @@ fn main() -> eframe::Result {
         options,
         Box::new(|_cc| Ok(Box::<ui::app::ExposureBracketingOrganizerApp>::default())),
     )
+}
+
+pub fn set_window_icon() -> egui::IconData {
+    let icon = include_bytes!("../static/favicon.ico");
+    let image = image::load_from_memory(icon)
+        .expect("Failed to load icon")
+        .to_rgba8();
+    let (width, height) = image.dimensions();
+    let rgba = image.into_raw();
+    egui::IconData {
+        rgba,
+        width,
+        height,
+    }
 }
