@@ -1,6 +1,6 @@
 [package]
 name = "ExposureBracketingOrganizer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 repository = "https://github.com/Boslx/ExposureBracketingOrganizer"
 
@@ -11,9 +11,13 @@ env_logger = "0.11.8"
 rfd = "0.15.4"
 log = "0.4.28"
 rawler = "0.7.1"
-chrono = "0.4.42"
 num-rational = "0.4.2"
 num-traits = "0.2.19"
+image = { version = "0.24", default-features = false, features = ["ico"] }
+natord = "1.0.9"
+
+[build-dependencies]
+winres = "0.1"
 
 # The profile that 'dist' will build with
 [profile.dist]

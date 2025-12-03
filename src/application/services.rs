@@ -84,7 +84,7 @@ where
             Ok(e) => e,
             Err(_) => return Vec::new(),
         };
-        entries
+        let mut paths: Vec<PathBuf> = entries
             .flatten()
             .filter_map(|e| {
                 let path = e.path();
@@ -103,7 +103,10 @@ where
                     None
                 }
             })
-            .collect()
+            .collect();
+
+        paths.sort_by(|a, b| natord::compare(&a.to_string_lossy(), &b.to_string_lossy()));
+        paths
     }
 
     fn find_matching_sequences<'a>(
@@ -212,7 +215,8 @@ where
 
                 let mut file = match fs::OpenOptions::new()
                     .create(true)
-                    .append(true)
+                    .write(true)
+                    .truncate(true)
                     .open(&file_path)
                 {
                     Ok(f) => f,
@@ -230,7 +234,7 @@ where
                 if let Err(e) = writeln!(file, "") {
                     warn!("Failed to write to sequences.txt: {}", e);
                 }
-                info!("Appended sequence to sequences.txt");
+                info!("Wrote sequence to sequences.txt");
             }
         }
     }
