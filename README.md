@@ -1,7 +1,5 @@
 # ExposureBracketingOrganizer
 
-![Banner](static/banner.jpg)
-
 ExposureBracketingOrganizer is a GUI application designed to streamline the process of organizing bracketed exposures. It automatically detects sequences of images taken with varying exposure values (EVs) and moves them into nested folder. This organization makes it significantly easier to process these bracketed sets with other software like [HDRMerge](https://jcelaya.github.io/hdrmerge/).
 
 ## Motivation
